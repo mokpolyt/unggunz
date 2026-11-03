@@ -50,6 +50,9 @@ h2{font-size:1.4rem;margin:0 0 20px;letter-spacing:-.01em}
 .post h3{margin:0;font-size:1.1rem;line-height:1.25}
 .post p{margin:0;color:var(--muted);font-size:.95rem}
 .post time{font-size:.8rem;color:var(--muted)}
+.article h1{margin:12px 0 4px;font-size:clamp(1.6rem,4vw,2.2rem);line-height:1.15;letter-spacing:-.02em}
+.article .body{white-space:pre-wrap;font-size:1.05rem;line-height:1.7;margin-top:18px}
+.article .m{width:100%;border-radius:10px;margin-top:16px;max-height:480px;object-fit:cover}
 .empty{color:var(--muted);padding:24px;border:1px dashed var(--line);border-radius:10px}
 .panel{max-width:460px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}
 .panel.wide{max-width:640px}
@@ -131,13 +134,22 @@ textarea{min-height:110px;resize:vertical}
   </main>
 </section>
 
+<section id="v-post" class="hide"><main>
+  <article class="panel wide" style="max-width:720px">
+    <a href="#home">Back to posts</a>
+    <div id="postBox"></div>
+  </article>
+</main></section>
+
 <section id="v-upload" class="hide"><main>
   <div class="panel wide">
     <h2>New post</h2>
     <label for="t">Title</label>
     <input type="text" id="t" maxlength="120">
     <label for="d">Short description</label>
-    <textarea id="d" maxlength="280"></textarea>
+    <textarea id="d" maxlength="280" style="min-height:70px"></textarea>
+    <label for="c">Post content</label>
+    <textarea id="c" style="min-height:260px" placeholder="Write your post here…"></textarea>
     <label>Image or video</label>
     <div class="drop" id="drop" tabindex="0">
       <svg class="i" style="width:28px;height:28px;display:block;margin:0 auto 8px"><use href="#i-upload"/></svg><span id="dropTxt">Drop a file here or tap to choose</span>
@@ -175,7 +187,8 @@ function card(p){
       : `<img class="m" src="${esc(p.file_url)}" alt="" loading="lazy">`;
   }
   const date = new Date(p.created_at).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
-  return `<article class="post">${media}<div class="b"><time>${date}</time><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p></div></article>`;
+  const h3=p.id?`<a href="#post-${esc(p.id)}" style="text-decoration:none">${esc(p.title)}</a>`:esc(p.title);
+  return `<article class="post">${media}<div class="b"><time>${date}</time><h3>${h3}</h3><p>${esc(p.description)}</p></div></article>`;
 }
 
 async function loadPosts(){
@@ -186,11 +199,26 @@ async function loadPosts(){
   box.innerHTML = data.length ? data.map(card).join("") : `<div class="empty">No posts yet. Tap Upload to publish the first one.</div>`;
 }
 
+async function showPost(id){
+  const box=$("postBox"); box.className="article"; box.innerHTML="<p>Loading…</p>";
+  if(!sb){ box.innerHTML="<p>Connect Supabase first.</p>"; return; }
+  const {data,error}=await sb.from("posts").select("*").eq("id",id).single();
+  if(error||!data){ box.innerHTML="<p>Post not found.</p>"; return; }
+  let media="";
+  if(data.file_url) media=(data.file_type||"").startsWith("video")
+    ? `<video class="m" src="${esc(data.file_url)}" controls playsinline></video>`
+    : `<img class="m" src="${esc(data.file_url)}" alt="">`;
+  const date=new Date(data.created_at).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"});
+  box.innerHTML=`<h1>${esc(data.title)}</h1><time style="color:var(--muted);font-size:.85rem">${date}</time>${media}<div class="body">${esc(data.content||data.description)}</div>`;
+}
 function route(){
-  let h = (location.hash||"#home").slice(1);
-  if(h!=="upload") h = "home";
-  ["home","upload"].forEach(n=>$("v-"+n).classList.toggle("hide",n!==h));
-  if(h==="home") loadPosts();
+  let h=(location.hash||"#home").slice(1);
+  const isPost=h.startsWith("post-");
+  if(!isPost && h!=="upload") h="home";
+  const view=isPost?"post":h;
+  ["home","post","upload"].forEach(n=>$("v-"+n).classList.toggle("hide",n!==view));
+  if(view==="home") loadPosts();
+  if(isPost) showPost(h.slice(5));
   window.scrollTo(0,0);
 }
 
@@ -207,7 +235,7 @@ drop.addEventListener("drop",e=>{ if(e.dataTransfer.files[0]) pick(e.dataTransfe
 
 $("doPost").onclick = async()=>{
   const m=$("upMsg"); m.className="msg"; m.textContent="";
-  const title=$("t").value.trim(), desc=$("d").value.trim();
+  const title=$("t").value.trim(), desc=$("d").value.trim(), content=$("c").value;
   if(!title){ m.className="msg err"; m.textContent="Add a title."; return; }
   if(file && file.size>50*1024*1024){ m.className="msg err"; m.textContent="File is over 50 MB."; return; }
   $("doPost").disabled=true; m.textContent="Publishing…";
@@ -220,10 +248,10 @@ $("doPost").onclick = async()=>{
       if(up.error) throw up.error;
       file_url=sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; file_type=file.type;
     }
-    const ins=await sb.from("posts").insert({title,description:desc,file_url,file_type});
+    const ins=await sb.from("posts").insert({title,description:desc,content,file_url,file_type});
     if(ins.error) throw ins.error;
     m.className="msg ok"; m.textContent="Published.";
-    $("t").value=""; $("d").value=""; fin.value=""; pick(null);
+    $("t").value=""; $("d").value=""; $("c").value=""; fin.value=""; pick(null);
   }catch(e){ m.className="msg err"; m.textContent="Couldn’t publish: "+(e.message||e); }
   $("doPost").disabled=false;
 };
