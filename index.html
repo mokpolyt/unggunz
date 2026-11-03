@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>blogUnggunz — Latest posts</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js"></script>
+<style>
+:root{--paper:#f6f7f9;--ink:#14161a;--muted:#5d6470;--dark:#16181d;--dark2:#22252c;--line:#d9dde3;--accent:#19c8d8;--card:#fff;--danger:#c0392b}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font:16px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;background:var(--paper);color:var(--ink)}
+a{color:inherit}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px clamp(16px,4vw,40px);background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.logo{font-weight:800;font-size:1.25rem;letter-spacing:-.02em;text-decoration:none}
+.logo i{color:var(--accent);font-style:normal}
+nav{display:flex;gap:8px;align-items:center}
+.btn{font:inherit;font-weight:600;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;background:var(--accent);color:#04282c;text-decoration:none;display:inline-block}
+.btn.ghost{background:transparent;color:inherit;border:1px solid var(--line)}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.hero{display:grid;grid-template-columns:1fr 1fr;min-height:300px;background:linear-gradient(115deg,#fff 0 50%,var(--dark) 50% 100%)}
+.hero .l,.hero .r{padding:clamp(24px,5vw,56px)}
+.hero h1{font-size:clamp(1.8rem,4.5vw,3.2rem);line-height:1.05;margin:0 0 12px;letter-spacing:-.03em;color:var(--ink)}
+.hero p{margin:0;max-width:34ch;color:var(--muted)}
+.hero .r{color:#cfd4dc;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.sl{display:flex;align-items:center;gap:12px;font-size:.85rem}
+.sl .bar{flex:1;height:4px;border-radius:4px;background:#3a3e47;position:relative}
+.sl .bar b{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--accent)}
+.sl .bar b::after{content:"";position:absolute;right:-6px;top:-4px;width:12px;height:12px;border-radius:50%;background:#fff}
+.sl span:last-child{min-width:36px;text-align:right}
+
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.btn{display:inline-flex;align-items:center;gap:6px}
+.tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px;max-width:420px}
+.tools .ic{width:38px;height:38px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--line);background:#fff;color:#33415c;transition:background .15s,border-color .15s}
+.tools .ic:hover{border-color:var(--accent);background:#e9fbfd}
+.tools .ic.on{background:#d7f4f8;border-color:var(--accent)}
+.tools .sep{width:1px;background:var(--line);margin:4px 4px}
+.tabs{display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;margin-bottom:6px}
+.tabs .tb{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.78rem;padding:8px 12px;border-radius:8px;color:#aab1bc}
+.tabs .tb.on{color:#fff;background:#2a2e36}
+.tabs .tb svg{width:22px;height:22px}
+.tabs .ex{margin-left:auto;background:var(--accent);color:#04282c;font-weight:700;flex-direction:row;gap:6px;padding:9px 14px}
+main{max-width:1100px;margin:0 auto;padding:clamp(20px,4vw,40px) clamp(16px,4vw,40px) 64px}
+h2{font-size:1.4rem;margin:0 0 20px;letter-spacing:-.01em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+.post{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.post .m{aspect-ratio:16/9;background:var(--dark2);display:block;width:100%;object-fit:cover}
+.post .b{padding:16px;display:flex;flex-direction:column;gap:6px}
+.post h3{margin:0;font-size:1.1rem;line-height:1.25}
+.post p{margin:0;color:var(--muted);font-size:.95rem}
+.post time{font-size:.8rem;color:var(--muted)}
+.empty{color:var(--muted);padding:24px;border:1px dashed var(--line);border-radius:10px}
+.panel{max-width:460px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}
+.panel.wide{max-width:640px}
+label{display:block;font-weight:600;margin:14px 0 6px;font-size:.9rem}
+input[type=text],input[type=password],textarea{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;color:var(--muted);cursor:pointer}
+.drop.over{border-color:var(--accent);background:#e9fbfd}
+.drop input{display:none}
+.msg{margin-top:14px;font-size:.92rem}
+.msg.err{color:var(--danger)}.msg.ok{color:#14803a}
+.hide{display:none!important}
+.note{background:#fff7e0;border:1px solid #f0d98a;color:#5b4a00;padding:10px 14px;border-radius:8px;font-size:.88rem;margin-bottom:20px}
+@media(max-width:700px){
+ .hero{grid-template-columns:1fr;background:linear-gradient(170deg,#fff 0 52%,var(--dark) 52% 100%)}
+ .hero .r{padding-top:48px}
+}
+@media(prefers-color-scheme:dark){
+ :root{--paper:#101216;--ink:#eceef2;--muted:#9aa2ae;--line:#2b2f37;--card:#181b21}
+ .hero{background:linear-gradient(115deg,#1d2026 0 50%,#0a0b0e 50% 100%)}
+ input[type=text],input[type=password],textarea{background:#101216}
+ .drop.over{background:#0f2a2e}
+ .tools .ic{background:var(--card);color:#9fb0d0}
+ .tools .ic.on,.tools .ic:hover{background:#0f2a2e}
+ .note{background:#2c2610;border-color:#5b4a00;color:#f0d98a}
+}
+@media(prefers-color-scheme:dark) and (max-width:700px){.hero{background:linear-gradient(170deg,#1d2026 0 52%,#0a0b0e 52% 100%)}}
+@media(max-width:700px) and (prefers-color-scheme:light){.hero h1{color:var(--ink)}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z M14 7l3 3"/></symbol>
+<symbol id="i-bucket" viewBox="0 0 24 24"><path d="M5 12l7-7 7 7-6 6a2 2 0 0 1-3 0z M20 15c1 1.5 1.5 2.5 1.5 3.5a1.5 1.5 0 0 1-3 0c0-1 .5-2 1.5-3.5z"/></symbol>
+<symbol id="i-text" viewBox="0 0 24 24"><path d="M5 19L12 4l7 15 M8 14h8"/></symbol>
+<symbol id="i-eraser" viewBox="0 0 24 24"><path d="M3 16l9-10 7 7-6 7H8z M8 20h12"/></symbol>
+<symbol id="i-picker" viewBox="0 0 24 24"><path d="M14 4l6 6-3 1-8 8H5v-4l8-8z M16 6l2 2"/></symbol>
+<symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/></symbol>
+<symbol id="i-line" viewBox="0 0 24 24"><path d="M4 20L20 4"/></symbol>
+<symbol id="i-ellipse" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6"/></symbol>
+<symbol id="i-rect" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></symbol>
+<symbol id="i-tri" viewBox="0 0 24 24"><path d="M4 19L12 5l8 14z"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="i-sticker" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14c1 1.5 2.2 2 3.5 2s2.5-.5 3.5-2 M9 9.5h.01 M15 9.5h.01"/></symbol>
+<symbol id="i-fx" viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></symbol>
+<symbol id="i-trans" viewBox="0 0 24 24"><path d="M4 6l8 6-8 6z M20 6l-8 6 8 6z"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><circle cx="9" cy="10" r="5"/><circle cx="15" cy="10" r="5"/><circle cx="12" cy="15" r="5"/></symbol>
+<symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4 M7 9l5-5 5 5 M5 20h14"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5 M7 10l5-5 5 5 M5 20h14"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M10 4H5v16h5 M15 8l4 4-4 4 M9 12h10"/></symbol>
+</svg>
+<header class="top">
+  <a class="logo" href="#home">blogUnggunz<i>.</i></a>
+  <nav>
+    <a class="btn ghost" id="navLogin" href="#login"><svg class="i"><use href="#i-user"/></svg>Log in</a>
+    <a class="btn hide" id="navUpload" href="#upload"><svg class="i"><use href="#i-upload"/></svg>Upload</a>
+    <button class="btn ghost hide" id="navLogout"><svg class="i"><use href="#i-out"/></svg>Log out</button>
+  </nav>
+</header>
+
+<section id="v-home">
+  <div class="hero">
+    <div class="l">
+      <div class="tools" aria-hidden="true"><span class="ic on"><svg class="i"><use href="#i-pencil"/></svg></span><span class="ic"><svg class="i"><use href="#i-bucket"/></svg></span><span class="ic"><svg class="i"><use href="#i-text"/></svg></span><span class="ic"><svg class="i"><use href="#i-eraser"/></svg></span><span class="ic"><svg class="i"><use href="#i-picker"/></svg></span><span class="ic"><svg class="i"><use href="#i-zoom"/></svg></span><span class="sep"></span><span class="ic"><svg class="i"><use href="#i-line"/></svg></span><span class="ic"><svg class="i"><use href="#i-ellipse"/></svg></span><span class="ic"><svg class="i"><use href="#i-rect"/></svg></span><span class="ic"><svg class="i"><use href="#i-tri"/></svg></span><span class="ic"><svg class="i"><use href="#i-star"/></svg></span><span class="ic"><svg class="i"><use href="#i-arrow"/></svg></span></div>
+      <h1>Fresh from the workbench.</h1>
+      <p>Short notes, edits and finished pieces. The newest posts are below.</p>
+    </div>
+    <div class="r" aria-hidden="true">
+      <div class="tabs"><span class="tb"><svg class="i"><use href="#i-sticker"/></svg>Stickers</span><span class="tb on"><svg class="i"><use href="#i-fx"/></svg>Effects</span><span class="tb"><svg class="i"><use href="#i-trans"/></svg>Transition</span><span class="tb"><svg class="i"><use href="#i-filter"/></svg>Filters</span><span class="tb ex"><svg class="i"><use href="#i-export"/></svg>Export</span></div>
+      <div class="sl"><span>Filter</span><div class="bar"><b style="width:50%"></b></div><span>50%</span></div>
+      <div class="sl"><span>Blur</span><div class="bar"><b style="width:72%"></b></div><span>72%</span></div>
+      <div class="sl"><span>Zoom</span><div class="bar"><b style="width:40%"></b></div><span>40%</span></div>
+    </div>
+  </div>
+  <main>
+    <h2>Latest posts</h2>
+    <div id="cfgNote" class="note hide">Supabase isn’t connected yet, so these are sample posts. Add your URL and key in <code>index.html</code>.</div>
+    <div class="grid" id="posts"></div>
+  </main>
+</section>
+
+<section id="v-login" class="hide"><main>
+  <div class="panel">
+    <h2>Log in</h2>
+    <label for="uid">ID</label>
+    <input type="text" id="uid" autocomplete="username" autocapitalize="none">
+    <label for="pw">Password</label>
+    <input type="password" id="pw" autocomplete="current-password">
+    <p><button class="btn" id="doLogin" style="width:100%;margin-top:18px">Log in</button></p>
+    <div class="msg" id="loginMsg" role="status"></div>
+  </div>
+</main></section>
+
+<section id="v-upload" class="hide"><main>
+  <div class="panel wide">
+    <h2>New post</h2>
+    <label for="t">Title</label>
+    <input type="text" id="t" maxlength="120">
+    <label for="d">Short description</label>
+    <textarea id="d" maxlength="280"></textarea>
+    <label>Image or video</label>
+    <div class="drop" id="drop" tabindex="0">
+      <svg class="i" style="width:28px;height:28px;display:block;margin:0 auto 8px"><use href="#i-upload"/></svg><span id="dropTxt">Drop a file here or tap to choose</span>
+      <input type="file" id="f" accept="image/*,video/*">
+    </div>
+    <p><button class="btn" id="doPost" style="width:100%;margin-top:18px">Publish post</button></p>
+    <div class="msg" id="upMsg" role="status"></div>
+  </div>
+</main></section>
+
+<script>
+// ====== CONFIG: paste your Supabase values (Project Settings → API) ======
+const SUPABASE_URL = "https://gjyeknwtoofpuvoaftfj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_HBf14rn-fWP8AZ_OaLFfag_V6qNKjk5";
+const LOGIN_DOMAIN = "bongkar.app"; // id "bongkar" → bongkar@bongkar.app (create this user in Supabase)
+const BUCKET = "uploads";
+// =========================================================================
+
+const $ = id => document.getElementById(id);
+const configured = !SUPABASE_URL.startsWith("YOUR_");
+const sb = configured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let session = null;
+
+const SAMPLE = [
+  {title:"Smooth motion blur in three steps",description:"A quick look at tuning blur strength so fast cuts still feel natural.",created_at:new Date().toISOString()},
+  {title:"Why I still sketch in Paint",description:"Simple tools, fast ideas. How a blank canvas helps before the real edit.",created_at:new Date(Date.now()-864e5*3).toISOString()},
+  {title:"A 90s filter, explained",description:"What the film-grain look actually changes, and when to dial it back.",created_at:new Date(Date.now()-864e5*7).toISOString()}
+];
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function card(p){
+  let media = "";
+  if(p.file_url){
+    media = (p.file_type||"").startsWith("video")
+      ? `<video class="m" src="${esc(p.file_url)}" controls preload="metadata" playsinline></video>`
+      : `<img class="m" src="${esc(p.file_url)}" alt="" loading="lazy">`;
+  }
+  const date = new Date(p.created_at).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+  return `<article class="post">${media}<div class="b"><time>${date}</time><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p></div></article>`;
+}
+
+async function loadPosts(){
+  const box = $("posts");
+  if(!configured){ $("cfgNote").classList.remove("hide"); box.innerHTML = SAMPLE.map(card).join(""); return; }
+  const {data,error} = await sb.from("posts").select("*").order("created_at",{ascending:false}).limit(12);
+  if(error){ box.innerHTML = `<div class="empty">Couldn’t load posts: ${esc(error.message)}</div>`; return; }
+  box.innerHTML = data.length ? data.map(card).join("") : `<div class="empty">No posts yet. Log in and publish the first one.</div>`;
+}
+
+function setAuthUI(){
+  const on = !!session;
+  $("navLogin").classList.toggle("hide",on);
+  $("navUpload").classList.toggle("hide",!on);
+  $("navLogout").classList.toggle("hide",!on);
+}
+
+function route(){
+  let h = (location.hash||"#home").slice(1);
+  if(h==="upload" && !session) h = "login";
+  ["home","login","upload"].forEach(n=>$("v-"+n).classList.toggle("hide",n!==h));
+  if(h==="home") loadPosts();
+  window.scrollTo(0,0);
+}
+
+$("doLogin").onclick = async()=>{
+  const m = $("loginMsg"); m.className="msg"; m.textContent="";
+  if(!configured){ m.className="msg err"; m.textContent="Connect Supabase in index.html first."; return; }
+  const id = $("uid").value.trim().toLowerCase(), pw = $("pw").value;
+  if(!id||!pw){ m.className="msg err"; m.textContent="Enter your ID and password."; return; }
+  const {data,error} = await sb.auth.signInWithPassword({email:`${id}@${LOGIN_DOMAIN}`,password:pw});
+  if(error){ m.className="msg err"; m.textContent="Wrong ID or password."; return; }
+  session = data.session; setAuthUI(); $("pw").value=""; location.hash="#upload";
+};
+$("pw").addEventListener("keydown",e=>{ if(e.key==="Enter") $("doLogin").click(); });
+$("navLogout").onclick = async()=>{ if(sb) await sb.auth.signOut(); session=null; setAuthUI(); location.hash="#home"; };
+
+// upload UI
+const drop=$("drop"), fin=$("f");
+let file=null;
+const pick=f=>{ file=f; $("dropTxt").textContent = f ? f.name : "Drop a file here or tap to choose"; };
+drop.onclick=()=>fin.click();
+drop.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fin.click(); } };
+fin.onchange=()=>pick(fin.files[0]||null);
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>{ if(e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); });
+
+$("doPost").onclick = async()=>{
+  const m=$("upMsg"); m.className="msg"; m.textContent="";
+  const title=$("t").value.trim(), desc=$("d").value.trim();
+  if(!title){ m.className="msg err"; m.textContent="Add a title."; return; }
+  $("doPost").disabled=true; m.textContent="Publishing…";
+  try{
+    let file_url=null,file_type=null;
+    if(file){
+      const ext=(file.name.split(".").pop()||"bin").toLowerCase().replace(/[^a-z0-9]/g,"");
+      const path=`${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const up=await sb.storage.from(BUCKET).upload(path,file,{contentType:file.type});
+      if(up.error) throw up.error;
+      file_url=sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; file_type=file.type;
+    }
+    const ins=await sb.from("posts").insert({title,description:desc,file_url,file_type});
+    if(ins.error) throw ins.error;
+    m.className="msg ok"; m.textContent="Published.";
+    $("t").value=""; $("d").value=""; fin.value=""; pick(null);
+  }catch(e){ m.className="msg err"; m.textContent="Couldn’t publish: "+(e.message||e); }
+  $("doPost").disabled=false;
+};
+
+window.addEventListener("hashchange",route);
+(async()=>{
+  if(sb){ const {data}=await sb.auth.getSession(); session=data.session; }
+  setAuthUI(); route();
+})();
+</script>
+</body>
+</html>
