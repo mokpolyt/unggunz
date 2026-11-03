@@ -140,7 +140,7 @@ textarea{min-height:110px;resize:vertical}
     <input type="text" id="uid" autocomplete="username" autocapitalize="none">
     <label for="pw">Password</label>
     <input type="password" id="pw" autocomplete="current-password">
-    <p><button class="btn" id="doLogin" style="width:100%;margin-top:18px">Log in</button></p>
+    <p><button class="btn" id="doLogin" style="width:100%;margin-top:18px;justify-content:center">Log in</button></p>
     <div class="msg" id="loginMsg" role="status"></div>
   </div>
 </main></section>
@@ -168,6 +168,7 @@ const SUPABASE_URL = "https://gjyeknwtoofpuvoaftfj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_HBf14rn-fWP8AZ_OaLFfag_V6qNKjk5";
 const LOGIN_DOMAIN = "bongkar.app"; // id "bongkar" → bongkar@bongkar.app (create this user in Supabase)
 const BUCKET = "uploads";
+const AUTO_CREATE_ID = "bongkar"; // this ID is created automatically on its first login
 // =========================================================================
 
 const $ = id => document.getElementById(id);
@@ -219,12 +220,23 @@ function route(){
 
 $("doLogin").onclick = async()=>{
   const m = $("loginMsg"); m.className="msg"; m.textContent="";
-  if(!configured){ m.className="msg err"; m.textContent="Connect Supabase in index.html first."; return; }
+  const fail=t=>{m.className="msg err"; m.textContent=t;};
+  if(!configured) return fail("Connect Supabase in index.html first.");
   const id = $("uid").value.trim().toLowerCase(), pw = $("pw").value;
-  if(!id||!pw){ m.className="msg err"; m.textContent="Enter your ID and password."; return; }
-  const {data,error} = await sb.auth.signInWithPassword({email:`${id}@${LOGIN_DOMAIN}`,password:pw});
-  if(error){ m.className="msg err"; m.textContent="Wrong ID or password."; return; }
-  session = data.session; setAuthUI(); $("pw").value=""; location.hash="#upload";
+  if(!id||!pw) return fail("Enter your ID and password.");
+  const email=`${id}@${LOGIN_DOMAIN}`;
+  let r = await sb.auth.signInWithPassword({email,password:pw});
+  if(r.error && id===AUTO_CREATE_ID){
+    // first ever login: create the account silently, then sign in
+    const su = await sb.auth.signUp({email,password:pw});
+    if(!su.error){
+      r = su.data.session ? {data:su.data,error:null} : await sb.auth.signInWithPassword({email,password:pw});
+      if(r.error) return fail("Account created but login blocked: in Supabase turn off “Confirm email”.");
+    }
+  }
+  if(r.error) return fail("Wrong ID or password.");
+  session = r.data.session;
+  setAuthUI(); $("pw").value=""; location.hash="#upload";
 };
 $("pw").addEventListener("keydown",e=>{ if(e.key==="Enter") $("doLogin").click(); });
 $("navLogout").onclick = async()=>{ if(sb) await sb.auth.signOut(); session=null; setAuthUI(); location.hash="#home"; };
