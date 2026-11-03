@@ -106,9 +106,7 @@ textarea{min-height:110px;resize:vertical}
 <header class="top">
   <a class="logo" href="#home">blogUnggunz<i>.</i></a>
   <nav>
-    <a class="btn ghost" id="navLogin" href="#login"><svg class="i"><use href="#i-user"/></svg>Log in</a>
-    <a class="btn hide" id="navUpload" href="#upload"><svg class="i"><use href="#i-upload"/></svg>Upload</a>
-    <button class="btn ghost hide" id="navLogout"><svg class="i"><use href="#i-out"/></svg>Log out</button>
+    <a class="btn" id="navUpload" href="#upload"><svg class="i"><use href="#i-upload"/></svg>Upload</a>
   </nav>
 </header>
 
@@ -133,18 +131,6 @@ textarea{min-height:110px;resize:vertical}
   </main>
 </section>
 
-<section id="v-login" class="hide"><main>
-  <div class="panel">
-    <h2>Log in</h2>
-    <label for="uid">ID</label>
-    <input type="text" id="uid" autocomplete="username" autocapitalize="none">
-    <label for="pw">Password</label>
-    <input type="password" id="pw" autocomplete="current-password">
-    <p><button class="btn" id="doLogin" style="width:100%;margin-top:18px;justify-content:center">Log in</button></p>
-    <div class="msg" id="loginMsg" role="status"></div>
-  </div>
-</main></section>
-
 <section id="v-upload" class="hide"><main>
   <div class="panel wide">
     <h2>New post</h2>
@@ -166,15 +152,12 @@ textarea{min-height:110px;resize:vertical}
 // ====== CONFIG: paste your Supabase values (Project Settings → API) ======
 const SUPABASE_URL = "https://gjyeknwtoofpuvoaftfj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_HBf14rn-fWP8AZ_OaLFfag_V6qNKjk5";
-const LOGIN_DOMAIN = "bongkar.app"; // id "bongkar" → bongkar@bongkar.app (create this user in Supabase)
 const BUCKET = "uploads";
-const AUTO_CREATE_ID = "bongkar"; // this ID is created automatically on its first login
 // =========================================================================
 
 const $ = id => document.getElementById(id);
 const configured = !SUPABASE_URL.startsWith("YOUR_");
 const sb = configured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-let session = null;
 
 const SAMPLE = [
   {title:"Smooth motion blur in three steps",description:"A quick look at tuning blur strength so fast cuts still feel natural.",created_at:new Date().toISOString()},
@@ -200,46 +183,16 @@ async function loadPosts(){
   if(!configured){ $("cfgNote").classList.remove("hide"); box.innerHTML = SAMPLE.map(card).join(""); return; }
   const {data,error} = await sb.from("posts").select("*").order("created_at",{ascending:false}).limit(12);
   if(error){ box.innerHTML = `<div class="empty">Couldn’t load posts: ${esc(error.message)}</div>`; return; }
-  box.innerHTML = data.length ? data.map(card).join("") : `<div class="empty">No posts yet. Log in and publish the first one.</div>`;
-}
-
-function setAuthUI(){
-  const on = !!session;
-  $("navLogin").classList.toggle("hide",on);
-  $("navUpload").classList.toggle("hide",!on);
-  $("navLogout").classList.toggle("hide",!on);
+  box.innerHTML = data.length ? data.map(card).join("") : `<div class="empty">No posts yet. Tap Upload to publish the first one.</div>`;
 }
 
 function route(){
   let h = (location.hash||"#home").slice(1);
-  if(h==="upload" && !session) h = "login";
-  ["home","login","upload"].forEach(n=>$("v-"+n).classList.toggle("hide",n!==h));
+  if(h!=="upload") h = "home";
+  ["home","upload"].forEach(n=>$("v-"+n).classList.toggle("hide",n!==h));
   if(h==="home") loadPosts();
   window.scrollTo(0,0);
 }
-
-$("doLogin").onclick = async()=>{
-  const m = $("loginMsg"); m.className="msg"; m.textContent="";
-  const fail=t=>{m.className="msg err"; m.textContent=t;};
-  if(!configured) return fail("Connect Supabase in index.html first.");
-  const id = $("uid").value.trim().toLowerCase(), pw = $("pw").value;
-  if(!id||!pw) return fail("Enter your ID and password.");
-  const email=`${id}@${LOGIN_DOMAIN}`;
-  let r = await sb.auth.signInWithPassword({email,password:pw});
-  if(r.error && id===AUTO_CREATE_ID){
-    // first ever login: create the account silently, then sign in
-    const su = await sb.auth.signUp({email,password:pw});
-    if(!su.error){
-      r = su.data.session ? {data:su.data,error:null} : await sb.auth.signInWithPassword({email,password:pw});
-      if(r.error) return fail("Account created but login blocked: in Supabase turn off “Confirm email”.");
-    }
-  }
-  if(r.error) return fail("Wrong ID or password.");
-  session = r.data.session;
-  setAuthUI(); $("pw").value=""; location.hash="#upload";
-};
-$("pw").addEventListener("keydown",e=>{ if(e.key==="Enter") $("doLogin").click(); });
-$("navLogout").onclick = async()=>{ if(sb) await sb.auth.signOut(); session=null; setAuthUI(); location.hash="#home"; };
 
 // upload UI
 const drop=$("drop"), fin=$("f");
@@ -256,6 +209,7 @@ $("doPost").onclick = async()=>{
   const m=$("upMsg"); m.className="msg"; m.textContent="";
   const title=$("t").value.trim(), desc=$("d").value.trim();
   if(!title){ m.className="msg err"; m.textContent="Add a title."; return; }
+  if(file && file.size>50*1024*1024){ m.className="msg err"; m.textContent="File is over 50 MB."; return; }
   $("doPost").disabled=true; m.textContent="Publishing…";
   try{
     let file_url=null,file_type=null;
@@ -276,8 +230,7 @@ $("doPost").onclick = async()=>{
 
 window.addEventListener("hashchange",route);
 (async()=>{
-  if(sb){ const {data}=await sb.auth.getSession(); session=data.session; }
-  setAuthUI(); route();
+  route();
 })();
 </script>
 </body>
