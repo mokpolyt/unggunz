@@ -58,6 +58,7 @@ h2{font-size:1.4rem;margin:0 0 20px;letter-spacing:-.01em}
 .rte-bar .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
 #c{min-height:260px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);line-height:1.6;overflow:auto}
 #c:empty::before{content:attr(data-ph);color:var(--muted)}
+.dates{display:flex;flex-wrap:wrap;gap:2px 14px;color:var(--muted);font-size:.82rem}.dates time{display:inline}
 .article .body.rich{white-space:normal}.article .body mark{padding:0 .15em;border-radius:3px}
 .article .body{white-space:pre-wrap;font-size:1.05rem;line-height:1.7;margin-top:18px}
 .article .m{width:100%;border-radius:10px;margin-top:16px;max-height:480px;object-fit:cover}
@@ -151,7 +152,7 @@ textarea{min-height:110px;resize:vertical}
 
 <section id="v-upload" class="hide"><main>
   <div class="panel wide">
-    <h2>New post</h2>
+    <h2 id="formTitle">New post</h2>
     <label for="t">Title</label>
     <input type="text" id="t" maxlength="120">
     <label for="d">Short description</label>
@@ -177,6 +178,7 @@ textarea{min-height:110px;resize:vertical}
       <svg class="i" style="width:28px;height:28px;display:block;margin:0 auto 8px"><use href="#i-upload"/></svg><span id="dropTxt">Drop a file here or tap to choose</span>
       <input type="file" id="f" accept="image/*,video/*">
     </div>
+    <div id="curFile" class="hide" style="margin-top:8px;font-size:.9rem"><span>This post has a file. Choose a new one above to replace it.</span><label style="font-weight:400;margin:6px 0 0"><input type="checkbox" id="rmFile"> Remove current file</label></div>
     <p><button class="btn" id="doPost" style="width:100%;margin-top:18px">Publish post</button></p>
     <div class="msg" id="upMsg" role="status"></div>
   </div>
@@ -229,6 +231,9 @@ function clean(html){
 }
 const looksHtml=s=>/<[a-z][\s\S]*>/i.test(s||"");
 
+const fmtDT=iso=>iso?new Date(iso).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"";
+const dates=p=>`<div class="dates"><time>Posted ${fmtDT(p.created_at)}</time><time>Last edited ${fmtDT(p.updated_at||p.created_at)}</time></div>`;
+
 function card(p){
   let media = "";
   if(p.file_url){
@@ -238,7 +243,7 @@ function card(p){
   }
   const date = new Date(p.created_at).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
   const h3=p.id?`<a href="#post-${esc(p.id)}" style="text-decoration:none">${esc(p.title)}</a>`:esc(p.title);
-  return `<article class="post">${media}<div class="b"><time>${date}</time><h3>${h3}</h3><p>${esc(p.description)}</p></div></article>`;
+  return `<article class="post">${media}<div class="b">${dates(p)}<h3>${h3}</h3><p>${esc(p.description)}</p></div></article>`;
 }
 
 async function loadPosts(){
@@ -259,16 +264,18 @@ async function showPost(id){
     ? `<video class="m" src="${esc(data.file_url)}" controls playsinline></video>`
     : `<img class="m" src="${esc(data.file_url)}" alt="">`;
   const date=new Date(data.created_at).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"});
-  box.innerHTML=`<h1>${esc(data.title)}</h1><time style="color:var(--muted);font-size:.85rem">${date}</time>${media}${looksHtml(data.content)?`<div class="body rich">${clean(data.content)}</div>`:`<div class="body">${esc(data.content||data.description)}</div>`}`;
+  box.innerHTML=`<h1>${esc(data.title)}</h1>${dates(data)}${media}${looksHtml(data.content)?`<div class="body rich">${clean(data.content)}</div>`:`<div class="body">${esc(data.content||data.description)}</div>`}<p style="margin-top:22px"><a class="btn ghost" href="#edit-${esc(data.id)}">Edit post</a></p>`;
 }
 function route(){
   let h=(location.hash||"#home").slice(1);
-  const isPost=h.startsWith("post-");
-  if(!isPost && h!=="upload") h="home";
-  const view=isPost?"post":h;
+  const isPost=h.startsWith("post-"), isEdit=h.startsWith("edit-");
+  if(!isPost && !isEdit && h!=="upload") h="home";
+  const view=isPost?"post":isEdit?"upload":h;
   ["home","post","upload"].forEach(n=>$("v-"+n).classList.toggle("hide",n!==view));
   if(view==="home") loadPosts();
   if(isPost) showPost(h.slice(5));
+  if(h==="upload") resetForm();
+  if(isEdit) startEdit(h.slice(5));
   window.scrollTo(0,0);
 }
 
@@ -299,6 +306,23 @@ $("fc").addEventListener("input",e=>{ restore(); document.execCommand("foreColor
 $("hc").addEventListener("input",e=>{ restore(); document.execCommand("hiliteColor",false,e.target.value); });
 ed.addEventListener("paste",e=>{ e.preventDefault(); const t=(e.clipboardData||window.clipboardData).getData("text/plain"); document.execCommand("insertText",false,t); });
 
+let editingId=null;
+function resetForm(){
+  editingId=null; $("formTitle").textContent="New post"; $("doPost").textContent="Publish post";
+  $("t").value=""; $("d").value=""; ed.innerHTML=""; fin.value=""; pick(null);
+  $("curFile").classList.add("hide"); $("rmFile").checked=false; $("upMsg").textContent=""; $("upMsg").className="msg";
+}
+async function startEdit(id){
+  resetForm(); const m=$("upMsg");
+  if(!sb){ m.className="msg err"; m.textContent="Connect Supabase first."; return; }
+  const {data,error}=await sb.from("posts").select("*").eq("id",id).single();
+  if(error||!data){ m.className="msg err"; m.textContent="Post not found."; return; }
+  editingId=id; $("formTitle").textContent="Edit post"; $("doPost").textContent="Save changes";
+  $("t").value=data.title||""; $("d").value=data.description||"";
+  ed.innerHTML=looksHtml(data.content)?clean(data.content):esc(data.content||"").replace(/\n/g,"<br>");
+  $("curFile").classList.toggle("hide",!data.file_url);
+}
+
 $("doPost").onclick = async()=>{
   const m=$("upMsg"); m.className="msg"; m.textContent="";
   const title=$("t").value.trim(), desc=$("d").value.trim(), content=$("c").textContent.trim()?clean($("c").innerHTML):"";
@@ -314,10 +338,19 @@ $("doPost").onclick = async()=>{
       if(up.error) throw up.error;
       file_url=sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; file_type=file.type;
     }
-    const ins=await sb.from("posts").insert({title,description:desc,content,file_url,file_type});
-    if(ins.error) throw ins.error;
-    m.className="msg ok"; m.textContent="Published.";
-    $("t").value=""; $("d").value=""; $("c").innerHTML=""; fin.value=""; pick(null);
+    if(editingId){
+      const upd={title,description:desc,content,updated_at:new Date().toISOString()};
+      if(file){ upd.file_url=file_url; upd.file_type=file_type; }
+      else if($("rmFile").checked){ upd.file_url=null; upd.file_type=null; }
+      const r=await sb.from("posts").update(upd).eq("id",editingId).select();
+      if(r.error) throw r.error;
+      if(!r.data||!r.data.length) throw new Error("Nothing was updated. Check the update policy in Supabase.");
+      const id=editingId; resetForm(); location.hash="#post-"+id;
+    }else{
+      const ins=await sb.from("posts").insert({title,description:desc,content,file_url,file_type});
+      if(ins.error) throw ins.error;
+      resetForm(); m.className="msg ok"; m.textContent="Published.";
+    }
   }catch(e){ m.className="msg err"; m.textContent="Couldn’t publish: "+(e.message||e); }
   $("doPost").disabled=false;
 };
