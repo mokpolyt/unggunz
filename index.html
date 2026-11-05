@@ -188,6 +188,7 @@ textarea{min-height:110px;resize:vertical}
 // ====== CONFIG: paste your Supabase values (Project Settings → API) ======
 const SUPABASE_URL = "https://gjyeknwtoofpuvoaftfj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_HBf14rn-fWP8AZ_OaLFfag_V6qNKjk5";
+const TABLE = "blogunggunz_posts_x7k2q";   // unique table name (rename it in Supabase too)
 const BUCKET = "uploads";
 // =========================================================================
 
@@ -249,7 +250,7 @@ function card(p){
 async function loadPosts(){
   const box = $("posts");
   if(!configured){ $("cfgNote").classList.remove("hide"); box.innerHTML = SAMPLE.map(card).join(""); return; }
-  const {data,error} = await sb.from("posts").select("*").order("created_at",{ascending:false}).limit(12);
+  const {data,error} = await sb.from(TABLE).select("*").order("created_at",{ascending:false}).limit(12);
   if(error){ box.innerHTML = `<div class="empty">Couldn’t load posts: ${esc(error.message)}</div>`; return; }
   box.innerHTML = data.length ? data.map(card).join("") : `<div class="empty">No posts yet. Tap Upload to publish the first one.</div>`;
 }
@@ -257,7 +258,7 @@ async function loadPosts(){
 async function showPost(id){
   const box=$("postBox"); box.className="article"; box.innerHTML="<p>Loading…</p>";
   if(!sb){ box.innerHTML="<p>Connect Supabase first.</p>"; return; }
-  const {data,error}=await sb.from("posts").select("*").eq("id",id).single();
+  const {data,error}=await sb.from(TABLE).select("*").eq("id",id).single();
   if(error||!data){ box.innerHTML="<p>Post not found.</p>"; return; }
   let media="";
   if(data.file_url) media=(data.file_type||"").startsWith("video")
@@ -315,7 +316,7 @@ function resetForm(){
 async function startEdit(id){
   resetForm(); const m=$("upMsg");
   if(!sb){ m.className="msg err"; m.textContent="Connect Supabase first."; return; }
-  const {data,error}=await sb.from("posts").select("*").eq("id",id).single();
+  const {data,error}=await sb.from(TABLE).select("*").eq("id",id).single();
   if(error||!data){ m.className="msg err"; m.textContent="Post not found."; return; }
   editingId=id; $("formTitle").textContent="Edit post"; $("doPost").textContent="Save changes";
   $("t").value=data.title||""; $("d").value=data.description||"";
@@ -342,12 +343,12 @@ $("doPost").onclick = async()=>{
       const upd={title,description:desc,content,updated_at:new Date().toISOString()};
       if(file){ upd.file_url=file_url; upd.file_type=file_type; }
       else if($("rmFile").checked){ upd.file_url=null; upd.file_type=null; }
-      const r=await sb.from("posts").update(upd).eq("id",editingId).select();
+      const r=await sb.from(TABLE).update(upd).eq("id",editingId).select();
       if(r.error) throw r.error;
       if(!r.data||!r.data.length) throw new Error("Nothing was updated. Check the update policy in Supabase.");
       const id=editingId; resetForm(); location.hash="#post-"+id;
     }else{
-      const ins=await sb.from("posts").insert({title,description:desc,content,file_url,file_type});
+      const ins=await sb.from(TABLE).insert({title,description:desc,content,file_url,file_type});
       if(ins.error) throw ins.error;
       resetForm(); m.className="msg ok"; m.textContent="Published.";
     }
