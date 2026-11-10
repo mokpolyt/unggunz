@@ -51,7 +51,8 @@ h2{font-size:1.4rem;margin:0 0 20px;letter-spacing:-.01em}
 .post p{margin:0;color:var(--muted);font-size:.95rem}
 .post time{font-size:.8rem;color:var(--muted)}
 .article h1{margin:12px 0 4px;font-size:clamp(1.6rem,4vw,2.2rem);line-height:1.15;letter-spacing:-.02em}
-.rte-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px}
+.rte-bar{display:none;position:fixed;left:8px;top:8px;z-index:50;flex-wrap:wrap;gap:4px;align-items:center;max-width:calc(100vw - 16px);padding:6px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.22)}
+.rte-bar.show{display:flex}
 .rte-bar button,.rte-bar label.cw{font:inherit;font-size:.85rem;min-width:34px;height:34px;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin:0;font-weight:600}
 .rte-bar label.cw{position:relative;gap:4px}
 .rte-bar input[type=color]{width:22px;height:22px;padding:0;border:0;background:none;cursor:pointer}
@@ -126,8 +127,7 @@ textarea{min-height:110px;resize:vertical}
   <div class="hero">
     <div class="l">
       <div class="tools" aria-hidden="true"><span class="ic on"><svg class="i"><use href="#i-pencil"/></svg></span><span class="ic"><svg class="i"><use href="#i-bucket"/></svg></span><span class="ic"><svg class="i"><use href="#i-text"/></svg></span><span class="ic"><svg class="i"><use href="#i-eraser"/></svg></span><span class="ic"><svg class="i"><use href="#i-picker"/></svg></span><span class="ic"><svg class="i"><use href="#i-zoom"/></svg></span><span class="sep"></span><span class="ic"><svg class="i"><use href="#i-line"/></svg></span><span class="ic"><svg class="i"><use href="#i-ellipse"/></svg></span><span class="ic"><svg class="i"><use href="#i-rect"/></svg></span><span class="ic"><svg class="i"><use href="#i-tri"/></svg></span><span class="ic"><svg class="i"><use href="#i-star"/></svg></span><span class="ic"><svg class="i"><use href="#i-arrow"/></svg></span></div>
-      <h1>Fresh from the workbench.</h1>
-      <p>Short notes, edits and finished pieces. The newest posts are below.</p>
+      <h1>DUNIA BERUBAH KARENA AI -- SO SHOULD YOU!!!!</h1>
     </div>
     <div class="r" aria-hidden="true">
       <div class="tabs"><span class="tb"><svg class="i"><use href="#i-sticker"/></svg>Stickers</span><span class="tb on"><svg class="i"><use href="#i-fx"/></svg>Effects</span><span class="tb"><svg class="i"><use href="#i-trans"/></svg>Transition</span><span class="tb"><svg class="i"><use href="#i-filter"/></svg>Filters</span><span class="tb ex"><svg class="i"><use href="#i-export"/></svg>Export</span></div>
@@ -275,6 +275,7 @@ function route(){
   ["home","post","upload"].forEach(n=>$("v-"+n).classList.toggle("hide",n!==view));
   if(view==="home") loadPosts();
   if(isPost) showPost(h.slice(5));
+  if(view!=="upload") bar.classList.remove("show");
   if(h==="upload") resetForm();
   if(isEdit) startEdit(h.slice(5));
   window.scrollTo(0,0);
@@ -295,6 +296,26 @@ document.execCommand("styleWithCSS",false,true);
 const ed=$("c"); let saved=null;
 document.addEventListener("selectionchange",()=>{ const s=getSelection(); if(s.rangeCount&&ed.contains(s.anchorNode)) saved=s.getRangeAt(0).cloneRange(); });
 function restore(){ ed.focus(); if(saved){ const s=getSelection(); s.removeAllRanges(); s.addRange(saved); } }
+const bar=$("bar");
+function placeBar(){
+  const s=getSelection();
+  const inEd=s.rangeCount&&ed.contains(s.anchorNode);
+  if(!inEd){ if(!bar.contains(document.activeElement)) bar.classList.remove("show"); return; }
+  let r=s.getRangeAt(0).getBoundingClientRect();
+  if(!r.width&&!r.height) r=ed.getBoundingClientRect();
+  bar.classList.add("show");
+  const bw=bar.offsetWidth, bh=bar.offsetHeight, gap=10;
+  let top=r.top-bh-gap;
+  if(top<8) top=r.bottom+gap;
+  top=Math.max(8,Math.min(top,innerHeight-bh-8));
+  let left=r.left+r.width/2-bw/2;
+  left=Math.max(8,Math.min(left,innerWidth-bw-8));
+  bar.style.top=top+"px"; bar.style.left=left+"px";
+}
+document.addEventListener("selectionchange",placeBar);
+addEventListener("scroll",()=>{ if(bar.classList.contains("show")) placeBar(); },true);
+addEventListener("resize",placeBar);
+document.addEventListener("mousedown",e=>{ if(!bar.contains(e.target)&&!ed.contains(e.target)) bar.classList.remove("show"); });
 $("bar").addEventListener("mousedown",e=>{ if(e.target.closest("button")) e.preventDefault(); });
 $("bar").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
