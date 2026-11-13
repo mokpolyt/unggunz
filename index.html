@@ -70,6 +70,10 @@ h2{font-size:1.4rem;margin:0 0 20px;letter-spacing:-.01em}
 .pager a.cur{background:var(--accent);border-color:var(--accent);color:#04282c}
 .pager span.off{opacity:.4}
 .pager span.gap{border:0;background:none;min-width:20px;padding:0}
+.pin{display:inline-flex;align-items:center;gap:4px;align-self:flex-start;font-size:.75rem;font-weight:700;color:#04282c;background:var(--accent);border-radius:999px;padding:2px 10px}
+.post.pinned{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.chk{display:flex;align-items:center;gap:8px;font-weight:600;margin:16px 0 0}
+.chk input{width:18px;height:18px;margin:0}
 .empty{color:var(--muted);padding:24px;border:1px dashed var(--line);border-radius:10px}
 .panel{max-width:460px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}
 .panel.wide{max-width:640px}
@@ -121,6 +125,7 @@ textarea{min-height:110px;resize:vertical}
 <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4 M7 9l5-5 5 5 M5 20h14"/></symbol>
 <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5 M7 10l5-5 5 5 M5 20h14"/></symbol>
 <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 4h6l-1 6 3 3H7l3-3z M12 13v7"/></symbol>
 <symbol id="i-out" viewBox="0 0 24 24"><path d="M10 4H5v16h5 M15 8l4 4-4 4 M9 12h10"/></symbol>
 </svg>
 <header class="top">
@@ -181,6 +186,7 @@ textarea{min-height:110px;resize:vertical}
       <button type="button" data-cmd="removeFormat" title="Clear formatting">Clear</button>
     </div>
     <div id="c" contenteditable="true" data-ph="Write your post here…"></div>
+    <label class="chk" for="pinned"><input type="checkbox" id="pinned"> Pin this post to the top</label>
     <label>Image or video</label>
     <div class="drop" id="drop" tabindex="0">
       <svg class="i" style="width:28px;height:28px;display:block;margin:0 auto 8px"><use href="#i-upload"/></svg><span id="dropTxt">Drop a file here or tap to choose</span>
@@ -252,7 +258,8 @@ function card(p){
   }
   const date = new Date(p.created_at).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
   const h3=p.id?`<a href="#post-${esc(p.id)}" style="text-decoration:none">${esc(p.title)}</a>`:esc(p.title);
-  return `<article class="post">${media}<div class="b">${dates(p)}<h3>${h3}</h3><p>${esc(p.description)}</p></div></article>`;
+  const pin=p.pinned?`<span class="pin"><svg class="i" style="width:14px;height:14px"><use href="#i-pin"/></svg>Pinned</span>`:"";
+  return `<article class="post${p.pinned?" pinned":""}">${media}<div class="b">${pin}${dates(p)}<h3>${h3}</h3><p>${esc(p.description)}</p></div></article>`;
 }
 
 const PER_PAGE = 12;
@@ -277,7 +284,7 @@ async function loadPosts(page=1){
   if(!configured){ $("cfgNote").classList.remove("hide"); box.innerHTML = SAMPLE.map(card).join(""); $("pager").innerHTML=""; return; }
   page=Math.max(1,page|0||1);
   const from=(page-1)*PER_PAGE;
-  const {data,error,count} = await sb.from(TABLE).select("*",{count:"exact"}).order("created_at",{ascending:false}).range(from,from+PER_PAGE-1);
+  const {data,error,count} = await sb.from(TABLE).select("*",{count:"exact"}).order("pinned",{ascending:false,nullsFirst:false}).order("created_at",{ascending:false}).range(from,from+PER_PAGE-1);
   if(error){
     if(error.code==="PGRST103" && page>1){ location.hash="#page-1"; return; }
     box.innerHTML = `<div class="empty">Couldn’t load posts: ${esc(error.message)}</div>`; $("pager").innerHTML=""; return;
@@ -298,7 +305,7 @@ async function showPost(id){
     ? `<video class="m" src="${esc(data.file_url)}" controls playsinline></video>`
     : `<img class="m" src="${esc(data.file_url)}" alt="">`;
   const date=new Date(data.created_at).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"});
-  box.innerHTML=`<h1>${esc(data.title)}</h1>${dates(data)}${media}${looksHtml(data.content)?`<div class="body rich">${clean(data.content)}</div>`:`<div class="body">${esc(data.content||data.description)}</div>`}<p style="margin-top:22px"><a class="btn ghost" href="#edit-${esc(data.id)}">Edit post</a></p>`;
+  box.innerHTML=`${data.pinned?'<span class="pin"><svg class="i" style="width:14px;height:14px"><use href="#i-pin"/></svg>Pinned</span>':""}<h1>${esc(data.title)}</h1>${dates(data)}${media}${looksHtml(data.content)?`<div class="body rich">${clean(data.content)}</div>`:`<div class="body">${esc(data.content||data.description)}</div>`}<p style="margin-top:22px"><a class="btn ghost" href="#edit-${esc(data.id)}">Edit post</a></p>`;
 }
 function route(){
   let h=(location.hash||"#home").slice(1);
@@ -365,7 +372,7 @@ ed.addEventListener("paste",e=>{ e.preventDefault(); const t=(e.clipboardData||w
 let editingId=null;
 function resetForm(){
   editingId=null; $("formTitle").textContent="New post"; $("doPost").textContent="Publish post";
-  $("t").value=""; $("d").value=""; ed.innerHTML=""; fin.value=""; pick(null);
+  $("t").value=""; $("d").value=""; $("pinned").checked=false; ed.innerHTML=""; fin.value=""; pick(null);
   $("curFile").classList.add("hide"); $("rmFile").checked=false; $("upMsg").textContent=""; $("upMsg").className="msg";
 }
 async function startEdit(id){
@@ -374,7 +381,7 @@ async function startEdit(id){
   const {data,error}=await sb.from(TABLE).select("*").eq("id",id).single();
   if(error||!data){ m.className="msg err"; m.textContent="Post not found."; return; }
   editingId=id; $("formTitle").textContent="Edit post"; $("doPost").textContent="Save changes";
-  $("t").value=data.title||""; $("d").value=data.description||"";
+  $("pinned").checked=!!data.pinned; $("t").value=data.title||""; $("d").value=data.description||"";
   ed.innerHTML=looksHtml(data.content)?clean(data.content):esc(data.content||"").replace(/\n/g,"<br>");
   $("curFile").classList.toggle("hide",!data.file_url);
 }
@@ -395,7 +402,7 @@ $("doPost").onclick = async()=>{
       file_url=sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; file_type=file.type;
     }
     if(editingId){
-      const upd={title,description:desc,content,updated_at:new Date().toISOString()};
+      const upd={title,description:desc,content,pinned:$("pinned").checked,updated_at:new Date().toISOString()};
       if(file){ upd.file_url=file_url; upd.file_type=file_type; }
       else if($("rmFile").checked){ upd.file_url=null; upd.file_type=null; }
       const r=await sb.from(TABLE).update(upd).eq("id",editingId).select();
@@ -403,7 +410,7 @@ $("doPost").onclick = async()=>{
       if(!r.data||!r.data.length) throw new Error("Nothing was updated. Check the update policy in Supabase.");
       const id=editingId; resetForm(); location.hash="#post-"+id;
     }else{
-      const ins=await sb.from(TABLE).insert({title,description:desc,content,file_url,file_type});
+      const ins=await sb.from(TABLE).insert({title,description:desc,content,file_url,file_type,pinned:$("pinned").checked});
       if(ins.error) throw ins.error;
       resetForm(); m.className="msg ok"; m.textContent="Published.";
     }
